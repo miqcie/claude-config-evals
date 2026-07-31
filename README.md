@@ -10,8 +10,9 @@ deleting config is easy, and knowing you didn't break your setup is the hard
 part. This harness measures it: run the same fixed tasks against your old and
 trimmed configs, compare pass rates and cost, and get a verdict.
 
-Born from [this experiment](https://humaine.studio) trimming a ~12K-token
-always-on config to ~6K with no behavior loss and 10–15% lower cost per run.
+Born from [this experiment](https://humaine.studio/posts/2026/07/31/i-deleted-half-my-claude-config/)
+trimming a ~12K-token always-on config to ~6K with no behavior loss and 10–15%
+lower cost per run.
 
 ## How it works
 
@@ -23,8 +24,11 @@ config (see Personalizing below).
 
 ## Quickstart
 
-Requirements: Claude Code CLI (logged in), `jq`, `git`, Python 3. Runs cost
-real API money (roughly $0.50–1.50 per task run).
+Requirements: Claude Code CLI (logged in), `jq`, `git`, `rsync`, Python 3.
+Runs cost real API money: roughly $0.50–1.50 per task run, so the full
+quickstart below (3 tasks × 3 runs × 2 arms = 18 runs) is in the **$10–25**
+range. Start with `EVAL_N=1` and one task if you want to see it work for
+pennies first.
 
 ```bash
 git clone https://github.com/miqcie/claude-config-evals
@@ -46,9 +50,13 @@ python3 dashboard/make-dashboard.py
 open dashboard.html
 ```
 
-To unwind everything: `bin/restore.sh` shows what would change (dry run by
-default); `bin/restore.sh --yes` puts your snapshot back. Single files are
-recoverable from the snapshot's git history.
+To unwind: `bin/restore.sh` shows exactly what would change (dry run by
+default); `bin/restore.sh --yes` puts the snapshot state back. The snapshot
+covers all of `~/.claude` except session data, caches, and credentials
+(credentials are never copied). Single files are recoverable from the
+snapshot's git history. The snapshot lives at
+`~/.claude-config-evals-snapshot`, chmod 700 — it can contain env secrets from
+your settings, so **never add a remote to that repo**.
 
 ## Personalizing (the whole point)
 
@@ -62,6 +70,19 @@ The repo's `CLAUDE.md` teaches your agent the workflow: snapshot before
 touching anything, generate tasks in the `tasks/_template/` shape, and verify
 each check can actually fail before trusting it. Your canaries end up specific
 to your setup — that's what makes the verdict meaningful.
+
+## Threat model: tasks are executable content
+
+A task directory is code you run. `prompt.txt` drives a live Claude session
+with `--permission-mode acceptEdits` (auto-approved edits, plus whatever your
+own permission allowlist already grants), and `check.sh` executes as your
+user. **Read any task you didn't write before running it.** The runner
+enforces this: the first run of a new or changed task prints its full contents
+and requires confirmation (`CCE_TRUST_ALL=1` skips the gate for CI, only for
+task sets you've already reviewed). The same applies to the dashboard: task
+files and run transcripts are embedded into `dashboard.html`, escaped — but
+treat a PR that touches `dashboard/` with the same suspicion as one that
+touches `bin/`.
 
 ## Reading failures honestly
 

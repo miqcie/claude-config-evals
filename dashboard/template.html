@@ -108,16 +108,17 @@
 const ALL = __DATA__;
 const DETAILS = __DETAILS__;
 const DATA = ALL.filter(r => r.ok !== "error");
-const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+  .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 const CHEV = `<svg class="chev" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const by = (arr, k) => arr.reduce((m, r) => ((m[r[k]] ??= []).push(r), m), {});
 const med = a => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
 const money = v => v == null ? "—" : "$" + v.toFixed(2);
 
 const armData = by(DATA, "arm");
-// baseline (or first-seen) arm renders first
-const ARMS = [...new Set(DATA.map(r => r.arm))].sort((a, b) =>
-  (a === "baseline" ? -1 : b === "baseline" ? 1 : a.localeCompare(b)));
+// Arms in first-appearance (chronological) order: whatever you ran first is
+// the reference arm, regardless of what you named it.
+const ARMS = [...new Set(ALL.map(r => r.arm))];
 const tasks = [...new Set(DATA.map(r => r.task))].sort();
 
 const rate = a => { const rs = armData[a] || []; return rs.length ? rs.filter(r => r.ok === "pass").length / rs.length : null; };
@@ -136,11 +137,18 @@ if (ARMS.length < 2) {
   b.innerHTML = `<strong>One arm so far (${esc(ARMS[0] || "none")}).</strong> Run the other arm to get a verdict.`;
 } else {
   const [first, second] = ARMS;
-  const ok = rate(second) >= rate(first);
+  // Non-inferior means the overall rate AND every individual task held.
+  const regressed = tasks.filter(t => {
+    const fails = (arm) => (armData[arm] || []).filter(r => r.task === t && r.ok === "fail").length;
+    const runs = (arm) => (armData[arm] || []).filter(r => r.task === t).length;
+    if (!runs(first) || !runs(second)) return false;
+    return fails(second) / runs(second) > fails(first) / runs(first);
+  });
+  const ok = rate(second) >= rate(first) && regressed.length === 0;
   b.className = ok ? "verdict-pass" : "verdict-fail";
   b.innerHTML = ok
-    ? `<strong>Non-inferior.</strong> ${esc(second)} passed ${(rate(second) * 100).toFixed(0)}% vs ${esc(first)} ${(rate(first) * 100).toFixed(0)}%.`
-    : `<strong>Regression.</strong> ${esc(second)} pass rate is below ${esc(first)} — check which task regressed, then audit its check before restoring rules.`;
+    ? `<strong>Non-inferior.</strong> ${esc(second)} passed ${(rate(second) * 100).toFixed(0)}% vs ${esc(first)} ${(rate(first) * 100).toFixed(0)}%, and no task regressed.`
+    : `<strong>Regression:</strong> ${regressed.length ? esc(regressed.join(", ")) : "overall pass rate below " + esc(first)}. Audit the failing runs' checks before restoring rules.`;
 }
 
 // cost dumbbells (first two arms)
@@ -172,8 +180,8 @@ document.getElementById("tasks").innerHTML = tasks.map(t => {
     const rs = (armData[arm] || []).filter(r => r.task === t);
     if (!rs.length) return `<span class="armcell"><span class="armlabel">${esc(arm)}</span><br><span class="pending">no runs</span></span>`;
     const dots = rs.map(r => r.ok === "pass"
-      ? `<span class="p" title="run ${r.run}: pass">●</span>`
-      : `<span class="f" title="run ${r.run}: ${r.ok}">✕</span>`).join("");
+      ? `<span class="p" title="run ${esc(r.run)}: pass">●</span>`
+      : `<span class="f" title="run ${esc(r.run)}: ${esc(r.ok)}">✕</span>`).join("");
     return `<span class="armcell"><span class="armlabel">${esc(arm)}</span><br>
       <span class="dots">${dots}</span>
       <span class="stats"> ${money(med(rs.map(r => r.cost_usd)))} · ${med(rs.map(r => r.turns))} turns · ${med(rs.map(r => r.dur_s))}s</span></span>`;

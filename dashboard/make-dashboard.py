@@ -7,6 +7,8 @@ import datetime
 import pathlib
 
 D = pathlib.Path(__file__).parent.parent  # repo root
+if not (D / "results.csv").exists():
+    raise SystemExit("No results.csv yet — run bin/run-eval.sh first.")
 rows = list(csv.DictReader(open(D / "results.csv")))
 for r in rows:
     r["cost_usd"] = round(float(r["cost_usd"]), 3)
@@ -35,9 +37,16 @@ if runs_dir.is_dir():
                 txt = txt[:900] + " …[truncated]"
             details[task]["runs"][f"{arm}-{n}"] = txt
 
+def j(x):
+    """JSON safe for inline <script>: no </script> breakout, no line separators."""
+    return (json.dumps(x).replace("<", "\\u003c")
+            .replace("\u2028", "\\u2028").replace("\u2029", "\\u2029"))
+
+# Stamp first so data containing the literal placeholder strings can't be
+# substituted by a later pass.
 html = ((D / "dashboard" / "template.html").read_text()
-        .replace("__DATA__", json.dumps(rows))
-        .replace("__DETAILS__", json.dumps(details))
-        .replace("__STAMP__", stamp))
+        .replace("__STAMP__", stamp)
+        .replace("__DATA__", j(rows))
+        .replace("__DETAILS__", j(details)))
 (D / "dashboard.html").write_text(html)
 print(f"dashboard.html regenerated: {len(rows)} runs, stamped {stamp}")
