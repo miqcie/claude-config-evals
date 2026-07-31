@@ -1,0 +1,3 @@
+One self-contained instruction for a headless Claude run. It should exercise the
+behavior your cut rule used to enforce, without naming the rule. Keep it under
+three sentences. Delete this text and write yours.

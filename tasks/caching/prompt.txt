@@ -1,0 +1,1 @@
+Add caching for fetch_user in api.py so repeated calls for the same user_id don't refetch.

@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Config Eval Results</title>
+<style>
+  :root {
+    --bg: #fff; --text: #333; --light: #666; --lighter: #999; --dark: #000;
+    --border: #eee; --border-lt: #f0f0f0; --code-bg: #f5f5f5;
+    --pass: #164f2a; --fail: #d4703f; --pass-bg: #edf5ee; --fail-bg: #faeeec;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a1a; --text: #e4e4e4; --light: #b4b4b4; --lighter: #8a8a8a;
+      --dark: #f0f0f0; --border: #333; --border-lt: #2a2a2a; --code-bg: #2a2a2a;
+      --pass: #5da974; --fail: #f5b08a; --pass-bg: #22301f; --fail-bg: #382220;
+    }
+  }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    font-size: 16px; line-height: 1.6; margin: 0; padding: 3rem 1.25rem 4.5rem;
+  }
+  .wrap { max-width: 700px; margin: 0 auto; }
+  h1 { font-size: 30px; font-weight: 500; color: var(--dark); margin: 0 0 8px; line-height: 1.25; }
+  .sub { font-size: 15px; color: var(--light); margin: 0 0 28px; }
+  #banner { border: 1px solid var(--border); border-radius: 6px; padding: 14px 18px; margin-bottom: 28px; font-size: 15px; }
+  #banner.verdict-pass { border-left: 3px solid var(--pass); }
+  #banner.verdict-fail { border-left: 3px solid var(--fail); }
+  .tiles { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 32px; }
+  .tile { flex: 1 1 150px; border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px; }
+  .tile .k { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--lighter); }
+  .tile .v { font-size: 24px; font-weight: 500; color: var(--dark); font-variant-numeric: tabular-nums; }
+  h2 { font-size: 20px; font-weight: 500; color: var(--dark); margin: 36px 0 14px; }
+  .hint { font-size: 13px; color: var(--lighter); margin: 0 0 12px; }
+  .taskgrid { display: grid; gap: 8px; }
+  .name { font-family: ui-monospace, 'Monaco', 'Consolas', monospace; font-size: 13px; color: var(--dark); }
+  .armcell { font-size: 13px; color: var(--light); }
+  .armlabel { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--lighter); }
+  .dots { letter-spacing: .16em; font-size: 15px; }
+  .dots .p { color: var(--pass); } .dots .f { color: var(--fail); font-weight: 700; }
+  .stats { font-variant-numeric: tabular-nums; }
+  .pending { color: var(--lighter); font-style: italic; }
+  .dumb { display: grid; grid-template-columns: 8.5rem 1fr 8.5rem; gap: 10px; align-items: center; margin-bottom: 9px; font-size: 13px; }
+  .dumb .val { font-size: 11px; color: var(--lighter); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .dumb .lbl { font-family: ui-monospace, monospace; font-size: 12px; color: var(--dark); text-align: right; }
+  .dumb .track { position: relative; height: 18px; }
+  .dumb .link { position: absolute; top: 8px; height: 2px; background: var(--border); }
+  .dumb .pt { position: absolute; top: 4px; width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 0 2px var(--bg); }
+  .dumb .pt.b { background: var(--lighter); }
+  .dumb .pt.o { background: var(--dark); }
+  .legend { display: flex; gap: 18px; font-size: 12px; color: var(--light); margin: 4px 0 14px; flex-wrap: wrap; }
+  .legend .sw { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; }
+  .tablewrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 6px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { padding: 8px 12px; text-align: left; white-space: nowrap; }
+  th { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--lighter); border-bottom: 1px solid var(--border); font-weight: 600; }
+  td { border-bottom: 1px solid var(--border-lt); font-variant-numeric: tabular-nums; }
+  tr:last-child td { border-bottom: none; }
+  .pill { display: inline-block; padding: 1px 9px; border-radius: 99px; font-size: 12px; font-weight: 600; }
+  .pill.pass { background: var(--pass-bg); color: var(--pass); }
+  .pill.fail { background: var(--fail-bg); color: var(--fail); }
+  .pill.error, .pill.manual { background: var(--code-bg); color: var(--lighter); }
+  .foot { color: var(--lighter); font-size: 13px; margin-top: 28px; border-top: 1px solid var(--border); padding-top: 16px; }
+  details.clps { border: 1px solid var(--border); border-radius: 6px; }
+  details.clps > summary {
+    list-style: none; cursor: pointer; display: flex; align-items: center;
+    justify-content: space-between; gap: 12px; padding: 12px 14px;
+  }
+  details.clps > summary::-webkit-details-marker { display: none; }
+  details.clps > summary:focus-visible { outline: 2px solid var(--light); outline-offset: 2px; border-radius: 6px; }
+  .chev { flex: none; width: 16px; height: 16px; color: var(--lighter); transition: transform .2s ease; }
+  details.clps[open] > summary .chev { transform: rotate(180deg); }
+  @media (prefers-reduced-motion: reduce) { .chev { transition: none; } }
+  .clps-body { border-top: 1px solid var(--border-lt); padding: 12px 14px; }
+  .runx { margin-bottom: 14px; }
+  .runx .rk { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--lighter); margin-bottom: 3px; }
+  .runx pre {
+    background: var(--code-bg); border-radius: 4px; padding: 10px 12px; margin: 0;
+    font-family: ui-monospace, 'Monaco', 'Consolas', monospace; font-size: 12px;
+    line-height: 1.5; white-space: pre-wrap; overflow-x: auto; color: var(--text);
+  }
+  .grid { flex: 1; display: grid; grid-template-columns: 8.5rem 1fr 1fr; gap: 14px; align-items: center; }
+  @media (max-width: 540px) { .grid, .dumb { grid-template-columns: 1fr; gap: 6px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Config eval results</h1>
+  <p class="sub">Generated __STAMP__ from results.csv (rerun dashboard/make-dashboard.py to refresh)</p>
+  <div id="banner"></div>
+  <div class="tiles" id="tiles"></div>
+  <h2>Cost per task</h2>
+  <div id="costfig"></div>
+  <div class="legend" id="costlegend"></div>
+  <h2>Per-task comparison</h2>
+  <p class="hint">Each row expands to the exact prompt, the pass/fail check, and every run's output. Before trusting a fail, read the run — audit the judge before the defendant.</p>
+  <div class="taskgrid" id="tasks"></div>
+  <h2>All runs</h2>
+  <details class="clps">
+    <summary><span>Raw results table</span><svg class="chev" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></summary>
+    <div class="clps-body" style="padding:0"><div class="tablewrap" style="border:none"><table id="raw"></table></div></div>
+  </details>
+  <p class="foot">Verdict rule: keep the trim only if the second arm's pass rate and every task are non-inferior to the first. API-error runs are excluded from pass rates and shown in the raw table.</p>
+</div>
+<script>
+const ALL = __DATA__;
+const DETAILS = __DETAILS__;
+const DATA = ALL.filter(r => r.ok !== "error");
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+const CHEV = `<svg class="chev" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const by = (arr, k) => arr.reduce((m, r) => ((m[r[k]] ??= []).push(r), m), {});
+const med = a => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
+const money = v => v == null ? "—" : "$" + v.toFixed(2);
+
+const armData = by(DATA, "arm");
+// baseline (or first-seen) arm renders first
+const ARMS = [...new Set(DATA.map(r => r.arm))].sort((a, b) =>
+  (a === "baseline" ? -1 : b === "baseline" ? 1 : a.localeCompare(b)));
+const tasks = [...new Set(DATA.map(r => r.task))].sort();
+
+const rate = a => { const rs = armData[a] || []; return rs.length ? rs.filter(r => r.ok === "pass").length / rs.length : null; };
+const rateStr = a => { const rs = armData[a] || []; return rs.length ? `${rs.filter(r => r.ok === "pass").length}/${rs.length}` : "—"; };
+
+const tiles = [];
+for (const arm of ARMS) {
+  tiles.push({ k: arm + " pass rate", v: rateStr(arm) });
+  tiles.push({ k: arm + " median cost", v: money(med((armData[arm] || []).map(r => r.cost_usd))) });
+}
+document.getElementById("tiles").innerHTML = tiles.map(t =>
+  `<div class="tile"><div class="k">${esc(t.k)}</div><div class="v">${t.v}</div></div>`).join("");
+
+const b = document.getElementById("banner");
+if (ARMS.length < 2) {
+  b.innerHTML = `<strong>One arm so far (${esc(ARMS[0] || "none")}).</strong> Run the other arm to get a verdict.`;
+} else {
+  const [first, second] = ARMS;
+  const ok = rate(second) >= rate(first);
+  b.className = ok ? "verdict-pass" : "verdict-fail";
+  b.innerHTML = ok
+    ? `<strong>Non-inferior.</strong> ${esc(second)} passed ${(rate(second) * 100).toFixed(0)}% vs ${esc(first)} ${(rate(first) * 100).toFixed(0)}%.`
+    : `<strong>Regression.</strong> ${esc(second)} pass rate is below ${esc(first)} — check which task regressed, then audit its check before restoring rules.`;
+}
+
+// cost dumbbells (first two arms)
+if (ARMS.length >= 2) {
+  const [A, B] = ARMS;
+  const rows = tasks.map(t => {
+    const m = a => med((armData[a] || []).filter(r => r.task === t).map(r => r.cost_usd));
+    return { t, a: m(A), b: m(B) };
+  }).filter(r => r.a != null && r.b != null);
+  const cMax = Math.max(...rows.flatMap(r => [r.a, r.b]), 0.01) * 1.15;
+  document.getElementById("costfig").innerHTML = rows.map(r => {
+    const ax = r.a / cMax * 100, bx = r.b / cMax * 100;
+    const lo = Math.min(ax, bx), hi = Math.max(ax, bx);
+    return `<div class="dumb"><div class="lbl">${esc(r.t)}</div>
+      <div class="track">
+        <div class="link" style="left:${lo}%;width:${hi - lo}%"></div>
+        <div class="pt b" style="left:calc(${ax}% - 5px)"></div>
+        <div class="pt o" style="left:calc(${bx}% - 5px)"></div>
+      </div>
+      <div class="val">${money(r.a)} → ${money(r.b)}</div></div>`;
+  }).join("");
+  document.getElementById("costlegend").innerHTML =
+    `<span><span class="sw" style="background:var(--lighter)"></span>${esc(A)}</span>
+     <span><span class="sw" style="background:var(--dark)"></span>${esc(B)}</span>`;
+}
+
+document.getElementById("tasks").innerHTML = tasks.map(t => {
+  const cells = ARMS.map(arm => {
+    const rs = (armData[arm] || []).filter(r => r.task === t);
+    if (!rs.length) return `<span class="armcell"><span class="armlabel">${esc(arm)}</span><br><span class="pending">no runs</span></span>`;
+    const dots = rs.map(r => r.ok === "pass"
+      ? `<span class="p" title="run ${r.run}: pass">●</span>`
+      : `<span class="f" title="run ${r.run}: ${r.ok}">✕</span>`).join("");
+    return `<span class="armcell"><span class="armlabel">${esc(arm)}</span><br>
+      <span class="dots">${dots}</span>
+      <span class="stats"> ${money(med(rs.map(r => r.cost_usd)))} · ${med(rs.map(r => r.turns))} turns · ${med(rs.map(r => r.dur_s))}s</span></span>`;
+  }).join("");
+
+  const d = DETAILS[t] || {};
+  let body = "";
+  if (d.prompt) body += `<div class="runx"><div class="rk">Prompt</div><pre>${esc(d.prompt)}</pre></div>`;
+  if (d.check) body += `<div class="runx"><div class="rk">Check (run verbatim)</div><pre>${esc(d.check)}</pre></div>`;
+  for (const [key, txt] of Object.entries(d.runs || {})) {
+    const [arm, n] = key.split(/-(?=[^-]+$)/);
+    const row = DATA.find(r => r.task === t && r.arm === arm && String(r.run) === n);
+    const badge = row ? ` — ${row.ok}, ${money(row.cost_usd)}, ${row.turns} turns` : "";
+    body += `<div class="runx"><div class="rk">${esc(arm)} run ${esc(n)}${badge}</div><pre>${esc(txt)}</pre></div>`;
+  }
+  return `<details class="clps">
+    <summary><span class="grid"><span class="name">${esc(t)}</span>${cells}</span>${CHEV}</summary>
+    <div class="clps-body">${body || '<p class="hint">No run transcripts saved yet.</p>'}</div>
+  </details>`;
+}).join("");
+
+document.getElementById("raw").innerHTML =
+  `<tr><th>date</th><th>arm</th><th>task</th><th>run</th><th>result</th><th>cost</th><th>turns</th><th>dur</th></tr>` +
+  ALL.map(r => `<tr><td>${esc(r.date)}</td><td>${esc(r.arm)}</td><td>${esc(r.task)}</td><td>${r.run}</td>
+    <td><span class="pill ${esc(r.ok)}">${esc(r.ok)}</span></td>
+    <td>${money(r.cost_usd)}</td><td>${r.turns}</td><td>${r.dur_s}s</td></tr>`).join("");
+</script>
+</body>
+</html>

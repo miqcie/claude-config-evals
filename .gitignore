@@ -1,0 +1,5 @@
+# local eval outputs — every user's results are their own
+results.csv
+dashboard.html
+runs/
+.stderr
